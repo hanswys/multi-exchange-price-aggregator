@@ -1,0 +1,10 @@
+[
+  {
+    "exchange": "kraken",
+    "pair": "BTC-USD",
+    "price": "67432.00",
+    "quote_volume_24h": "75.00",
+    "source_ts": "2026-04-26T11:59:48.000Z",
+    "ingested_ts": "2026-04-26T11:59:58.900Z"
+  }
+]
