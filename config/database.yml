@@ -1,0 +1,21 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%= ENV.fetch("DATABASE_HOST", "localhost") %>
+  port: <%= ENV.fetch("DATABASE_PORT", 5432) %>
+  username: <%= ENV["DATABASE_USER"] %>
+  password: <%= ENV["DATABASE_PASSWORD"] %>
+
+development:
+  <<: *default
+  database: multi_exchange_price_aggregator_development
+
+test:
+  <<: *default
+  database: multi_exchange_price_aggregator_test
+
+production:
+  <<: *default
+  database: multi_exchange_price_aggregator_production
+  url: <%= ENV["DATABASE_URL"] %>
