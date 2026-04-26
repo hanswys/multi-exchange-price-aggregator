@@ -1,0 +1,10 @@
+[
+  {
+    "exchange": "okx",
+    "pair": "BTC-USD",
+    "price": "0.01",
+    "quote_volume_24h": "200.00",
+    "source_ts": "2026-04-26T11:59:58.100Z",
+    "ingested_ts": "2026-04-26T11:59:58.800Z"
+  }
+]

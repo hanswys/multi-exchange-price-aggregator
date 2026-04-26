@@ -92,7 +92,10 @@ PR #3 is the project's thesis. If a reviewer reads only one diff, it's #3.
   - `core_zero_volume_spec.rb` — one source with `quote_volume_24h = 0` is dropped
   - `core_staleness_boundary_spec.rb` — tick at exactly 10.000s old IS rejected (off-by-one defended)
   - `core_insufficient_sources_spec.rb` — fewer than 2 raises `InsufficientSources`
-  - `prices_serialization_spec.rb` — placeholder spec asserting decimal-as-string contract (controller arrives in PR #8, but the assertion shape is fixed here)
+  - `aggregate_serialization_spec.rb` — asserts decimal-as-string contract at the value-object level (controller arrives in PR #8 and will reuse `Aggregate#to_h.to_json`; the same shape is locked here)
+- **2 supplementary specs covering design-documented Core paths:**
+  - `core_dedup_spec.rb` — "MAD baseline = latest one tick per source" rule: duplicate ticks from the same exchange dedupe to the freshest
+  - `core_even_median_spec.rb` — median with 4 sources averages the two middle prices
 
 **Reviewable as:** "the project's thesis is testable. No HTTP, no DB, no Rails — just the math, with all 5 silent-failure modes covered. This is the README's 'Things That Will Lie To You' in code."
 
