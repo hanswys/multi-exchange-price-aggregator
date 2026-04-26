@@ -31,7 +31,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: sh -c "bin/rails db:prepare && bin/rails server -b 0.0.0.0 -p 3000"
+    command: sh -c "rm -f tmp/pids/server.pid && bin/rails db:prepare && bin/rails server -b 0.0.0.0 -p 3000"
     environment:
       DATABASE_HOST: ${DATABASE_HOST:-db}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
@@ -57,7 +57,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: sh -c "bin/rails db:prepare && bundle exec sidekiq"
+    # web is the canonical db:prepare runner; worker just consumes the schema.
+    # Avoids the race where two containers run migrations against the same DB.
+    command: bundle exec sidekiq
     environment:
       DATABASE_HOST: ${DATABASE_HOST:-db}
       DATABASE_PORT: ${DATABASE_PORT:-5432}
