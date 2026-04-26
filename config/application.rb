@@ -28,6 +28,18 @@ module MultiExchangePriceAggregator
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
+    # Map app/aggregator/ to the Aggregator namespace. Without this, Zeitwerk
+    # treats app/aggregator/ as a separate root and expects files there to
+    # define top-level constants — which would collide with app/models/tick.rb.
+    # The Aggregator module is pre-declared in lib/aggregator.rb so it exists
+    # before push_dir runs.
+    initializer "aggregator.autoload", before: :set_autoload_paths do |app|
+      require Rails.root.join("lib/aggregator")
+      app.config.autoload_paths -= [ Rails.root.join("app/aggregator").to_s ]
+      app.config.eager_load_paths -= [ Rails.root.join("app/aggregator").to_s ]
+      Rails.autoloaders.main.push_dir(Rails.root.join("app/aggregator"), namespace: Aggregator)
+    end
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files
