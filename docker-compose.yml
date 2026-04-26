@@ -47,8 +47,11 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      # Source bind-mount keeps code edits live. We deliberately do NOT
+      # volume-mount /usr/local/bundle — the image's baked-in gems are
+      # authoritative, and `docker compose up --build` is the one knob
+      # for picking up Gemfile changes.
       - .:/rails
-      - bundle_cache:/usr/local/bundle
 
   worker:
     build:
@@ -68,10 +71,12 @@ services:
       redis:
         condition: service_healthy
     volumes:
+      # Source bind-mount keeps code edits live. We deliberately do NOT
+      # volume-mount /usr/local/bundle — the image's baked-in gems are
+      # authoritative, and `docker compose up --build` is the one knob
+      # for picking up Gemfile changes.
       - .:/rails
-      - bundle_cache:/usr/local/bundle
 
 volumes:
   db_data:
   redis_data:
-  bundle_cache:
