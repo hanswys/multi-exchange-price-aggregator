@@ -1,0 +1,30 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.coinbase.com/api/v3/brokerage/market/products/BTC-USD
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept:
+      - application/json
+      User-Agent:
+      - aggregator-coinbase-adapter/1.0
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json
+      Date:
+      - Sun, 03 May 2026 16:00:00 GMT
+      Cache-Control:
+      - no-cache, no-store
+    body:
+      encoding: UTF-8
+      string: '{"product_id":"BTC-USD","price":"67432.18","price_percentage_change_24h":"0.42","volume_24h":"12000.00000000","volume_percentage_change_24h":"-1.20","base_increment":"0.00000001","quote_increment":"0.01","quote_min_size":"1","quote_max_size":"100000000","base_min_size":"0.00000001","base_max_size":"3400","base_name":"Bitcoin","quote_name":"US Dollar","watched":false,"is_disabled":false,"new":false,"status":"online","cancel_only":false,"limit_only":false,"post_only":false,"trading_disabled":false,"auction_mode":false,"product_type":"SPOT","quote_currency_id":"USD","base_currency_id":"BTC","approximate_quote_24h_volume":"809186160.00"}'
+    http_version: '1.1'
+  recorded_at: Sun, 03 May 2026 16:00:00 GMT
+recorded_with: VCR 6.0.0
