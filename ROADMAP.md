@@ -272,6 +272,9 @@ deviations from the original plan are recorded in
 
 ### PR #9: Hotwire dashboard (static, no live updates yet)
 
+**Status:** SHIPPED (PR #13). Notes below describe the as-shipped surface;
+two minor variances from the original spec are listed under "as-shipped".
+
 **Title:** `feat(dashboard): instrument-panel layout with all 5 interaction states`
 
 - `app/controllers/dashboard_controller.rb#show`
@@ -293,6 +296,12 @@ deviations from the original plan are recorded in
 - Capybara + Cuprite system spec for happy-path render
 
 **Reviewable as:** "the dashboard renders. It's static — refresh to see new data — but every interaction state is reachable. Color contrast verified against WCAG AA."
+
+**As-shipped variances:**
+- Stimulus controller named `rejection-detail` (not `expand-rejection-detail`) with `#toggle` action — same behavior, shorter identifier.
+- Design tokens live in `app/assets/stylesheets/application.tailwind.css` (the cssbundling-rails entry), not a separate `application.css`.
+- State reachability uses a dev/test-only `?state=` query param to render any branch with stub fixture data; production traffic ignores the param. This is how each interaction state is reviewable on a fresh checkout without engineering Tick history.
+- Capybara + Cuprite is wired (`spec/support/cuprite.rb`) but the system spec runs under `:rack_test` because the `web` container has no Chromium binary. Tagging a spec `js: true` opts into Cuprite once Chromium is installed.
 
 ---
 
