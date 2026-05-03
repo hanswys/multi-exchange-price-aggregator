@@ -226,7 +226,7 @@ body {
 .rej-row .detail { color: var(--ink-faint); font-style: italic; }
 .rejections .empty { color: var(--ink-faint); font-style: italic; margin: 0; }
 
-/* Price flash on update — Phase 5 broadcast applies .flash-up / .flash-down */
+/* Price flash on update — flash_controller.js applies .flash-up / .flash-down */
 .hero .price.flash-up   { background-color: color-mix(in oklch, var(--ok),  transparent 90%); }
 .hero .price.flash-down { background-color: color-mix(in oklch, var(--bad), transparent 90%); }
 .hero .price { transition: background-color 200ms ease-out; }
