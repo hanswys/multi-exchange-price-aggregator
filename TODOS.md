@@ -178,3 +178,36 @@ A future `--scale worker=2` would silently break correctness. Fix: the
 supervisor acquires a Postgres advisory lock at start of perform; if it
 fails to acquire (another process holds it), it skips the iteration.
 Cheap, no new gem.
+
+---
+
+## Sources::Base — cap response body size to bound memory
+**Priority:** P2
+**Captured:** /ship adversarial review on PR #11
+
+`Oj.load(response.body, mode: :strict)` in every adapter parses the
+response body without a size cap. A hostile or compromised endpoint
+(or a buggy edge cache, or a MITM) can return a multi-GB JSON document
+that exhausts the Sidekiq worker's memory before parsing fails.
+Faraday's `read_timeout` (5s) bounds wall time, not bytes — a fast
+attacker can stream gigabytes inside the timeout. Fix: a Faraday
+middleware in `Base#build_connection` that aborts when `Content-Length`
+or accumulated bytes exceed a limit (e.g. 1 MB — exchange tickers are
+~1 KB). Affects all three adapters; one fix at the Base level covers
+all of them.
+
+---
+
+## Sources::Binance, Sources::Coinbase — apply Kraken's non-finite + truncation hardening
+**Priority:** P3
+**Captured:** /ship adversarial review on PR #11
+
+Kraken's parser now rejects `BigDecimal("NaN")` / `BigDecimal("Infinity")`
+and a zero-or-negative price (would otherwise propagate as poison through
+the kernel's MAD outlier and weighted-mean math). It also truncates
+upstream-controlled strings (`error[0]`, `Date` header, `inspect` of bad
+fields) to 256 chars before interpolating into `MalformedResponse` —
+preventing a hostile/buggy upstream from log-bombing Rails logs. The
+same hardening should land in `binance.rb` and `coinbase.rb` for
+symmetry. Each is ~10 lines of code plus 4 specs. Bundle into one PR
+since the change is identical in shape.

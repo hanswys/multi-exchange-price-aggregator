@@ -1,0 +1,30 @@
+---
+http_interactions:
+- request:
+    method: get
+    uri: https://api.kraken.com/0/public/Ticker?pair=XXBTZUSD
+    body:
+      encoding: US-ASCII
+      string: ''
+    headers:
+      Accept:
+      - application/json
+      User-Agent:
+      - aggregator-kraken-adapter/1.0
+  response:
+    status:
+      code: 200
+      message: OK
+    headers:
+      Content-Type:
+      - application/json; charset=utf-8
+      Date:
+      - Sun, 03 May 2026 16:00:00 GMT
+      Cache-Control:
+      - public, max-age=1
+    body:
+      encoding: UTF-8
+      string: '{"error":[],"result":{"XXBTZUSD":{"a":["67432.30000","1","1.000"],"b":["67432.10000","2","2.000"],"c":["67432.20000","0.00100000"],"v":["500.50000000","12000.00000000"],"p":["67400.00000000","67500.00000000"],"t":[1234,56789],"l":["67000.00000","66800.00000"],"h":["68000.00000","68200.00000"],"o":"67500.00000"}}}'
+    http_version: '1.1'
+  recorded_at: Sun, 03 May 2026 16:00:00 GMT
+recorded_with: VCR 6.0.0

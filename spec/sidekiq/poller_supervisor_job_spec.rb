@@ -1,6 +1,21 @@
 require "rails_helper"
 
 RSpec.describe PollerSupervisorJob, type: :job do
+  # Helper: insert a Tick for one Source at a given age. The supervisor
+  # iterates ALL Sources in REGISTRY, so every spec that wants to isolate
+  # one Source must either freshen the others or accept their (correct)
+  # cold-start enqueues. We freshen them.
+  def tick_for(name, age:)
+    Tick.create!(
+      exchange:         name,
+      pair:             "BTC-USD",
+      price:            BigDecimal("67000"),
+      quote_volume_24h: BigDecimal("1000"),
+      source_ts:        age.ago,
+      ingested_ts:      age.ago
+    )
+  end
+
   describe "#perform" do
     it "self-reschedules at the start of perform (before doing any work)" do
       expect { described_class.new.perform }
@@ -20,31 +35,22 @@ RSpec.describe PollerSupervisorJob, type: :job do
       end
     end
 
-    context "when a Source has a recent Tick (chain is alive)" do
-      it "does not enqueue a poll job for that Source" do
-        Tick.create!(
-          exchange:         "binance",
-          pair:             "BTC-USD",
-          price:            BigDecimal("67000"),
-          quote_volume_24h: BigDecimal("1000"),
-          source_ts:        1.second.ago,
-          ingested_ts:      1.second.ago
-        )
+    context "when every Source has a recent Tick (all chains alive)" do
+      it "does not enqueue any poll jobs" do
+        Aggregator::Sources::REGISTRY.each { |name| tick_for(name, age: 1.second) }
 
         expect { described_class.new.perform }.not_to change(ExchangePollJob.jobs, :size)
       end
     end
 
-    context "when a Source's latest Tick is stale and the Source is Unhealthy" do
-      it "does not enqueue a poll job (Unhealthy short-circuit)" do
-        Tick.create!(
-          exchange:         "binance",
-          pair:             "BTC-USD",
-          price:            BigDecimal("67000"),
-          quote_volume_24h: BigDecimal("1000"),
-          source_ts:        1.minute.ago,
-          ingested_ts:      1.minute.ago
-        )
+    context "when one Source's latest Tick is stale and that Source is Unhealthy" do
+      it "does not enqueue a poll job for the Unhealthy Source (short-circuit)" do
+        # Freshen every OTHER Source, leave binance with only a stale
+        # tick. The supervisor uses Tick.where(...).maximum(:ingested_ts),
+        # so adding a stale tick on top of a fresh one would be invisible —
+        # the binance row must be the stale one outright.
+        (Aggregator::Sources::REGISTRY - %w[binance]).each { |name| tick_for(name, age: 1.second) }
+        tick_for("binance", age: 1.minute)
         Aggregator::REDIS_POOL.with do |r|
           r.set("aggregator:source:binance:unhealthy", "1", ex: 30)
         end
@@ -53,16 +59,10 @@ RSpec.describe PollerSupervisorJob, type: :job do
       end
     end
 
-    context "when a Source's latest Tick is stale and the Source is healthy" do
-      it "enqueues a poll job (revival)" do
-        Tick.create!(
-          exchange:         "binance",
-          pair:             "BTC-USD",
-          price:            BigDecimal("67000"),
-          quote_volume_24h: BigDecimal("1000"),
-          source_ts:        1.minute.ago,
-          ingested_ts:      1.minute.ago
-        )
+    context "when one Source's latest Tick is stale and that Source is healthy" do
+      it "enqueues a poll job for that Source only (revival)" do
+        (Aggregator::Sources::REGISTRY - %w[binance]).each { |name| tick_for(name, age: 1.second) }
+        tick_for("binance", age: 1.minute)
 
         expect { described_class.new.perform }.to change(ExchangePollJob.jobs, :size).by(1)
         expect(ExchangePollJob.jobs.last["args"]).to eq([ "binance" ])
