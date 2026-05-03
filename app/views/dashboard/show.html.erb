@@ -1,0 +1,57 @@
+<% content_for :title, "BTC-USD — Aggregator" %>
+
+<% healthy_count = @ticks.map(&:exchange).uniq.size %>
+<% total_count   = Aggregator::Sources::REGISTRY.size %>
+
+<header role="banner" class="chrome">
+  <div class="chrome-left">
+    <span class="id"><b>aggregator</b> · <%= @pair %></span>
+    <span class="meta">poll <%= Aggregator::Constants::POLLING_INTERVAL %>s</span>
+    <span class="meta">window <%= Aggregator::Constants::AGGREGATION_WINDOW.to_i %>s</span>
+    <span class="meta">k=<%= format("%.1f", Aggregator::Constants::MAD_K) %></span>
+  </div>
+  <div class="chrome-right">
+    <span class="light <%= @state == :disconnect ? "warn" : "ok" %>">
+      <span class="dot"></span>
+      <span class="status-text">
+        <% if @state == :disconnect %>
+          RECONNECTING…
+        <% else %>
+          <%= "#{healthy_count}/#{total_count} sources" %>
+        <% end %>
+      </span>
+    </span>
+    <span class="controller-host" data-controller="dashboard-pause">
+      <button type="button"
+              class="pause"
+              data-pause-button
+              data-action="dashboard-pause#toggle"
+              aria-pressed="false">Pause</button>
+    </span>
+    <span class="clock"><%= format_clock_utc(Time.now) %></span>
+  </div>
+</header>
+
+<main class="grid" data-state="<%= @state %>">
+  <section class="pane consensus" aria-labelledby="consensus-label">
+    <div class="label" id="consensus-label">
+      <span class="label-text">consensus</span>
+      <span class="ticker"><%= @pair %></span>
+    </div>
+    <div class="hero" aria-live="polite">
+      <%= render "dashboard/state_#{@state}" %>
+    </div>
+  </section>
+
+  <aside class="side">
+    <section class="pane sources" aria-labelledby="sources-label">
+      <div class="label" id="sources-label"><span class="label-text">sources</span></div>
+      <%= render "dashboard/sources" %>
+    </section>
+
+    <section class="pane rejections" aria-labelledby="rejections-label">
+      <div class="label" id="rejections-label"><span class="label-text">rejections · last 60s</span></div>
+      <%= render "dashboard/rejections" %>
+    </section>
+  </aside>
+</main>
