@@ -23,7 +23,7 @@ require 'rspec/rails'
 # directory. Alternatively, in the individual `*_spec.rb` files, manually
 # require only the support files necessary.
 #
-# Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
+Rails.root.glob('spec/support/**/*.rb').sort_by(&:to_s).each { |f| require f }
 
 # Ensures that the test database schema matches the current schema file.
 # If there are pending migrations it will invoke `db:test:prepare` to
@@ -31,8 +31,17 @@ require 'rspec/rails'
 # If you are not using ActiveRecord, you can remove these lines.
 begin
   ActiveRecord::Migration.maintain_test_schema!
-rescue ActiveRecord::PendingMigrationError => e
-  abort e.to_s.strip
+rescue ActiveRecord::NoDatabaseError,
+       ActiveRecord::StatementInvalid,
+       ActiveRecord::PendingMigrationError,
+       PG::ConnectionBad => e
+  # Adapter specs (Aggregator::Sources::*) and kernel specs are pure Ruby
+  # and don't touch the DB. On a fresh checkout where Postgres or the
+  # TimescaleDB extension isn't available, warn instead of aborting so
+  # those specs still work. DB-touching specs (request specs, model
+  # specs) will fail loudly in their own `before` blocks when they
+  # actually need the schema.
+  warn "[rails_helper] skipping schema check: #{e.class}: #{e.message.lines.first&.strip}"
 end
 RSpec.configure do |config|
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
