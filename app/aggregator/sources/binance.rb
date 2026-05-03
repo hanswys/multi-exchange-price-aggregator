@@ -42,8 +42,8 @@ module Aggregator
         @http.get(ENDPOINT, { symbol: native })
       end
 
-      def parse_payload(body, canonical_pair)
-        payload = Oj.load(body, mode: :strict)
+      def parse_payload(response, canonical_pair)
+        payload = Oj.load(response.body, mode: :strict)
         raise MalformedResponse, "binance: response body was not a JSON object" unless payload.is_a?(Hash)
 
         # Fetch every required field up front so missing-field errors surface

@@ -8,7 +8,10 @@ module Aggregator
     #                       `exchange:` field and the Redis key fragment)
     #   - #base_url       : scheme + host
     #   - #request(canonical_pair) : returns a Faraday::Response
-    #   - #parse_payload(body, canonical_pair) : returns Aggregator::Tick
+    #   - #parse_payload(response, canonical_pair) : returns Aggregator::Tick
+    #     (receives the full Faraday::Response — adapters that need headers,
+    #     e.g. Coinbase reading `Date` for source_ts, can; adapters that only
+    #     need the body call `response.body`.)
     #
     # The contract of #fetch is documented in
     # docs/adr/0001-source-adapter-fetch-contract.md.
@@ -51,7 +54,7 @@ module Aggregator
             elsif response.status >= 500
               last_error = "HTTP #{response.status}"
             else
-              return parse_payload(response.body, canonical_pair)
+              return parse_payload(response, canonical_pair)
             end
           rescue Faraday::Error => e
             last_error = e.message
@@ -141,7 +144,7 @@ module Aggregator
         raise NotImplementedError
       end
 
-      def parse_payload(_body, _canonical_pair)
+      def parse_payload(_response, _canonical_pair)
         raise NotImplementedError
       end
     end
