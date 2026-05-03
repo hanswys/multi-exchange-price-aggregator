@@ -26,9 +26,9 @@ Each Source has its own adapter under `app/aggregator/sources/` and translates
 its own native symbols to the canonical pair. No cross-adapter symbol table —
 the translation is owned by the adapter that needs it.
 
-| Canonical pair | Binance              | Coinbase   |
-|----------------|----------------------|------------|
-| `BTC-USD`      | `BTCUSDT` (ticker)   | `BTC-USD`  |
+| Canonical pair | Binance              | Coinbase   | Kraken      |
+|----------------|----------------------|------------|-------------|
+| `BTC-USD`      | `BTCUSDT` (ticker)   | `BTC-USD`  | `XXBTZUSD`  |
 
 Notes:
 
@@ -37,7 +37,24 @@ Notes:
   risk is acknowledged (see `CONTEXT.md`, "USD-quote convention").
 - **Coinbase** product IDs are already canonical; the adapter's `SYMBOL_MAP`
   is identity but kept for symmetry with adapters that translate (so the
-  pattern is in the same place in every file).
-- See `docs/adr/0003-coinbase-source-decisions.md` for why the Coinbase
-  adapter reads `source_ts` from the HTTP `Date` header rather than the JSON
-  body — the only such asymmetry across Sources.
+  pattern is in the same place in every file). See
+  `docs/adr/0003-coinbase-source-decisions.md` for why the Coinbase adapter
+  reads `source_ts` from the HTTP `Date` header rather than the JSON body.
+- **Kraken** uses the legacy X/Z asset-prefix convention: BTC is `XXBT`, USD
+  is `ZUSD`, joined as `XXBTZUSD`. The same string is the request param
+  *and* the key in the response's `result` hash, so the adapter looks up the
+  result block by it (rather than `result.values.first`) — a defensive
+  assertion that the API echoed back what we asked for. Kraken also signals
+  application-level errors as a non-empty `error` array on a 200 response,
+  which the adapter raises as `MalformedResponse`. See
+  `docs/adr/0004-kraken-source-decisions.md` for the four coupled decisions
+  (error envelope, native-symbol round-trip, header-anchored `source_ts`,
+  computed quote volume from `v[1] × p[1]`).
+- **Why no shared `SymbolMapper`?** Each adapter's symbol translation is
+  paired with response-shape decisions a central table can't carry —
+  Kraken keys its `result` hash by the native symbol it received, Coinbase
+  interpolates the canonical pair into a URL path, Binance sends it as a
+  query param. Splitting "what this exchange calls `BTC-USD`" away from
+  "how to read it back" would put each adapter's two halves in different
+  files. At three Sources, one file per Source reads better than a shared
+  dictionary. Revisit if a fourth lookalike Source lands.
