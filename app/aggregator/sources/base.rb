@@ -58,7 +58,12 @@ module Aggregator
           end
 
           break if attempt >= Constants::RETRY_BACKOFF_MS.size
-          delay = retry_after_override || (Constants::RETRY_BACKOFF_MS[attempt] / 1000.0)
+          # Defensive: if RETRY_BACKOFF_MS is ever shorter than max_attempts - 1
+          # (shouldn't happen — they're derived from each other) we'd index
+          # past the end. Falling back to the longest backoff is safer than
+          # raising NoMethodError and bypassing the circuit breaker.
+          backoff_ms = Constants::RETRY_BACKOFF_MS[attempt] || Constants::RETRY_BACKOFF_MS.last
+          delay = retry_after_override || (backoff_ms / 1000.0)
           sleep(delay)
         end
 
@@ -66,16 +71,30 @@ module Aggregator
         raise Unreachable, "#{name} unreachable after #{max_attempts} attempts: #{last_error}"
       end
 
+      # Returns true when the circuit is open. Fails OPEN if Redis is
+      # unreachable: we'd rather make an unnecessary HTTP call (which has
+      # its own retry + timeout) than crash the entire fetch path with an
+      # unrescued Redis error. The poll job's rescue Aggregator::Sources::Error
+      # would not catch Redis::CannotConnectError otherwise.
       def unhealthy?
         @redis_pool.with { |r| r.exists?(unhealthy_key) }
+      rescue Redis::BaseError, ConnectionPool::TimeoutError => e
+        Rails.logger.warn("[#{name}] Redis unavailable for unhealthy? check (#{e.class}: #{e.message}); treating as healthy")
+        false
       end
 
       private
 
+      # Best-effort. If Redis is down we still raise Unreachable from #fetch,
+      # the circuit just doesn't latch this round — the next failed fetch will
+      # try again. Crashing here would convert a transient Redis blip into an
+      # unrescued exception that bypasses the documented Sources::Error surface.
       def mark_unhealthy!
         @redis_pool.with do |r|
           r.set(unhealthy_key, "1", ex: Constants::UNHEALTHY_TTL.to_i)
         end
+      rescue Redis::BaseError, ConnectionPool::TimeoutError => e
+        Rails.logger.warn("[#{name}] Redis unavailable for mark_unhealthy! (#{e.class}: #{e.message})")
       end
 
       def unhealthy_key

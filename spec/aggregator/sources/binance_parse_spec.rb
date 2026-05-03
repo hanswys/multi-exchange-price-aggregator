@@ -63,7 +63,7 @@ RSpec.describe Aggregator::Sources::Binance, "response parsing and pair validati
 
       expect {
         adapter.fetch("BTC-USD")
-      }.to raise_error(Aggregator::Sources::MalformedResponse, /malformed payload/)
+      }.to raise_error(Aggregator::Sources::MalformedResponse, /closeTime is not an integer/)
     end
   end
 end
