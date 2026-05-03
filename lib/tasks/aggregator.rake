@@ -7,14 +7,11 @@ namespace :aggregator do
 
     abort "usage: rake aggregator:fetch[exchange,pair]" if exchange.blank? || pair.blank?
 
-    adapter_class =
-      case exchange
-      when "binance" then Aggregator::Sources::Binance
-      else
-        abort "unknown exchange: #{exchange.inspect}. supported: binance"
-      end
+    unless Aggregator::Sources::REGISTRY.include?(exchange)
+      abort "unknown exchange: #{exchange.inspect}. supported: #{Aggregator::Sources::REGISTRY.join(', ')}"
+    end
 
-    tick = adapter_class.new.fetch(pair)
+    tick = Aggregator::Sources.adapter_for(exchange).new.fetch(pair)
 
     puts "exchange:         #{tick.exchange}"
     puts "pair:             #{tick.pair}"
