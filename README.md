@@ -19,3 +19,25 @@ be set — Compose will refuse to start otherwise.
 
 See `ROADMAP.md` for the implementation sequence and `TODOS.md` for deferred
 work.
+
+## Sources
+
+Each Source has its own adapter under `app/aggregator/sources/` and translates
+its own native symbols to the canonical pair. No cross-adapter symbol table —
+the translation is owned by the adapter that needs it.
+
+| Canonical pair | Binance              | Coinbase   |
+|----------------|----------------------|------------|
+| `BTC-USD`      | `BTCUSDT` (ticker)   | `BTC-USD`  |
+
+Notes:
+
+- **Binance** has no native `BTC/USD` market; we map canonical `BTC-USD` to
+  `BTCUSDT` and treat USD/USDT as the same quote currency for v1. USDT depeg
+  risk is acknowledged (see `CONTEXT.md`, "USD-quote convention").
+- **Coinbase** product IDs are already canonical; the adapter's `SYMBOL_MAP`
+  is identity but kept for symmetry with adapters that translate (so the
+  pattern is in the same place in every file).
+- See `docs/adr/0003-coinbase-source-decisions.md` for why the Coinbase
+  adapter reads `source_ts` from the HTTP `Date` header rather than the JSON
+  body — the only such asymmetry across Sources.
