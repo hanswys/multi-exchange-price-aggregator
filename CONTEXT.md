@@ -33,6 +33,14 @@ crosses adapter boundaries — the kernel, the API, the dashboard, and Redis
 keys all use it.
 _Avoid_: pair (alone — qualify as canonical when ambiguous), product, market.
 
+**Supported pair set**:
+The list of Canonical pairs the v1 service answers for. Lives in
+`Aggregator::Sources::CANONICAL_PAIRS` (v1: `["BTC-USD"]`). Used by
+`Api::V1::PricesController` to gate `/price/:pair` requests; an unknown
+pair returns 404 `unknown_pair` with `supported_pairs` echoed in the
+envelope.
+_Avoid_: allowed pairs, valid pairs, whitelist.
+
 **USD-quote convention**:
 For the canonical pair `BTC-USD`, USD and USDT are treated as the same quote
 currency. Binance's `BTCUSDT` maps to canonical `BTC-USD`. Documented as a
@@ -95,6 +103,15 @@ A structured reason a Source did not contribute to a given Aggregate.
 Reasons: `stale`, `outlier`, `unreachable`. Lives in
 `Aggregate#sources_rejected`.
 
+**Missing-source rejection**:
+An `unreachable` Rejection synthesized **outside** the kernel for a
+Source in `Aggregator::Sources::REGISTRY` that produced no Tick within
+the aggregation window. The kernel only rejects Ticks it sees; the API
+controller is responsible for computing `REGISTRY − seen_exchanges` and
+appending the missing-source rows to the JSON `sources_rejected` array
+on both the 200 success path and the 503 `insufficient_sources` rescue.
+This keeps `Aggregator::Core` registry-blind.
+
 ## Relationships
 
 - A **Source** produces zero or more **Ticks** per polling cycle.
@@ -115,6 +132,20 @@ Reasons: `stale`, `outlier`, `unreachable`. Lives in
 > that timed out once during this window and one whose circuit is open —
 > both are absent Ticks from its perspective. The adapter knows the
 > difference; the API surface intentionally doesn't."
+
+### API surface
+
+**`/price/:pair`**:
+The single read-only JSON endpoint exposed by `Api::V1::PricesController`.
+Returns 200 with an `Aggregate` envelope on success, 404 `unknown_pair`
+for a pair not in the Supported pair set, and 503 `insufficient_sources`
+when fewer than `MIN_SOURCES` healthy contributors are available. The
+controller inherits from `ActionController::API` (not `ApplicationController`)
+to bypass the dashboard's `allow_browser :modern` filter and keep the
+middleware stack appropriate for a public read API. CORS is wide-open
+(`origins '*'`, `methods: [:get]`, `resource '/price/*'`); responses are
+`Cache-Control: no-store` because the body carries `as_of` and any cache
+duration would make the response lie about its own timestamp.
 
 ## Flagged ambiguities
 
