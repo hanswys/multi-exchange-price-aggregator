@@ -132,22 +132,43 @@ PR #3 is the project's thesis. If a reviewer reads only one diff, it's #3.
 
 **Title:** `feat(polling): self-rescheduling Sidekiq pipeline + supervisor`
 
-- `app/sidekiq/exchange_poll_job.rb`:
-  - `perform(exchange_name)` → fetcher.fetch → `Tick.create!` → `self.class.perform_in(POLLING_INTERVAL.seconds, exchange_name)` at the end
-  - Failure isolation: rescue `Aggregator::Sources::Unreachable`, log, do NOT re-enqueue (supervisor handles this)
-- `app/sidekiq/poller_supervisor_job.rb`:
-  - Runs every minute via `sidekiq-cron` (`config/sidekiq.yml` cron entry)
-  - For each known exchange: if `Tick.where(exchange:).maximum(:ingested_ts) < 30.seconds.ago` → re-enqueue `ExchangePollJob`
-- `config/initializers/poller.rb`:
-  - Gated on `if Sidekiq.server?` — does NOT fire from web/console/test (eng review issue 2)
-  - Initial enqueue per known exchange
-- Specs:
-  - Job runs end-to-end against VCR fixtures
-  - Supervisor re-enqueues a stale exchange
-  - Initializer is no-op in `Rails.env.test?` (asserts no jobs enqueued)
-- `/healthz` updated to count `sources_healthy` from recent ticks
+**Status:** SHIPPED (PR #9). Several design decisions changed during implementation
+and are captured in `docs/adr/0002-polling-chain-lifecycle.md`. As-shipped:
 
-**Reviewable as:** "data flows into Postgres autonomously every 2 seconds. Crash-resilient — Sidekiq retry + supervisor watchdog."
+- `app/sidekiq/exchange_poll_job.rb` — `perform(name)` resolves the adapter via
+  `Aggregator::Sources.adapter_for(name)`, fetches one Tick, persists it, and
+  self-reschedules `POLLING_INTERVAL` (2.0s) later. Per-exception verdicts:
+  `Unreachable` and `Unhealthy` kill the chain (supervisor revives in ≤60s);
+  `MalformedResponse` continues; unrescued `StandardError` propagates to the
+  Sidekiq dead set as the audit trail. `retry: 0` ensures the supervisor is the
+  sole recovery mechanism.
+- `app/sidekiq/poller_supervisor_job.rb` — self-rescheduling at start of perform,
+  no `sidekiq-cron`. Iterates `Aggregator::Sources::REGISTRY`; revives a chain
+  when latest Tick is older than `AGGREGATION_WINDOW` (10s, not 30s) **and** the
+  Source is not currently `Unhealthy`.
+- `app/aggregator/sources.rb` — frozen `REGISTRY = %w[binance].freeze` plus
+  `Sources.adapter_for(name)` allowlist + `const_get` resolution. Coinbase and
+  Kraken append in PR #6 and #7.
+- `app/aggregator/sources/base.rb` — `unhealthy?` lifted to a class method so
+  the supervisor checks circuit state without instantiating an adapter.
+- `config/initializers/poller.rb` — `Aggregator::Poller.kick!` runs in
+  `after_initialize` (autoload-safe), gated on `Sidekiq.server?`. Kicks the
+  supervisor instead of enqueuing chains directly — single liveness predicate.
+- `config/sidekiq.yml` — concurrency 8, dedicated `polling` queue.
+- `config/initializers/sidekiq.rb` — `:average_scheduled_poll_interval = 1` so
+  `perform_in(2.0)` actually fires near 2s (default ~5–7s would silently break
+  the rate-limit math).
+- `/healthz` — `sources_healthy` is the count of distinct Sources with a Tick in
+  the last `AGGREGATION_WINDOW`. Status stays 200 regardless; `/price/:pair`
+  carries output-readiness in PR #8.
+- Specs: 16 new examples across 6 files (job lifecycle × 5, supervisor × 5,
+  initializer × 2, registry × 4, base class methods × 3, healthz × 2). Total
+  suite: 76 → 92 examples.
+- Smoke tested live against Binance (48 Ticks ingested over 2 minutes; manual
+  Unhealthy gate exercise verified the supervisor refuses revival and resumes
+  on circuit clear).
+
+**Reviewable as:** "data flows into Postgres autonomously every 2 seconds. One recovery path — the supervisor — by design (ADR 0002)."
 
 ---
 

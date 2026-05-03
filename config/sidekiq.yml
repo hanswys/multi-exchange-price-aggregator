@@ -1,0 +1,10 @@
+# Polling chains run on a dedicated queue so a 429 with a Retry-After
+# stall (sleep N seconds inside Aggregator::Sources::Base#fetch) cannot
+# pin every worker thread and starve the supervisor / future broadcast
+# job. Concurrency 8 leaves headroom for: 3 polling chains (v1) + 1
+# supervisor + 1 future BroadcastTickJob + ~3 idle threads to absorb
+# stalls. See docs/adr/0002-polling-chain-lifecycle.md.
+:concurrency: 8
+:queues:
+  - default
+  - polling
