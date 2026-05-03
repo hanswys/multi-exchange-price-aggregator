@@ -102,3 +102,79 @@ default — every fetch does a fresh TCP+TLS handshake (~100-300ms). Fix:
 either memoize one adapter instance per Source for the worker process
 lifetime (cleanest), or switch to `net-http-persistent`. Document the
 expectation in the PR that introduces the poll job.
+
+---
+
+## PollerSupervisorJob — heartbeat-based liveness, not just Tick recency
+**Priority:** P2
+**Captured:** /ship adversarial review on PR #9
+
+Current revival predicate uses `latest Tick > AGGREGATION_WINDOW`. A
+chain that's alive but slow (network stall + retry backoffs of 5–9s)
+looks dead to the supervisor → duplicate chain enqueued. ADR 0002
+acknowledges this for the multi-process case but the same race exists
+single-process when a poll legitimately takes >10s. Fix: chain refreshes
+a Redis heartbeat key with TTL `2 * POLLING_INTERVAL` on every loop;
+supervisor revives only when the heartbeat is missing. Lands when the
+multi-process race needs a real fix.
+
+---
+
+## ExchangePollJob — circuit on persistent MalformedResponse
+**Priority:** P3
+**Captured:** /ship adversarial review on PR #9
+
+A persistently-broken exchange contract (e.g. Binance changes JSON
+shape) results in infinite ERROR logs every 2s — the chain stays
+"healthy" by ADR 0002 design. Add a counter (Redis: per-Source
+malformed count, TTL = 5 min) — after N consecutive malformed responses,
+mark the Source Unhealthy with a longer TTL so a human notices. Trade:
+one more failure mode in the failure ladder.
+
+---
+
+## ExchangePollJob — TODOs from PR #9 testing specialist
+**Priority:** P3
+**Captured:** /ship pre-landing review on PR #9
+
+Defensible-as-deferred coverage gaps:
+- ActiveRecord::RecordInvalid path in `Tick.create!` not covered
+  (currently propagates → dead set per ADR 0002 `retry: 0` design,
+  but the contract isn't pinned by a spec)
+- AGGREGATION_WINDOW boundary spec for the supervisor (kernel has one
+  in `core_staleness_boundary_spec.rb`; symmetric supervisor test would
+  prevent off-by-one regression)
+- /healthz `rescue StandardError → 0` rescue path not covered
+- Initializer's `after_initialize` wiring not tested directly (only
+  `Aggregator::Poller.kick!` is; `kick!` is the testable seam by design)
+
+None of these are load-bearing — `retry: 0` makes regressions visible
+in Sidekiq's dead set rather than silently hidden. Adding them is a
+boil-the-lake polish pass when convenient.
+
+---
+
+## Sidekiq queue ordering / weighting
+**Priority:** P3
+**Captured:** /ship adversarial review on PR #9
+
+`config/sidekiq.yml` lists queues `[default, polling]`. Sidekiq 7+
+processes queues in declaration order with some fairness (not strict
+priority unless `:strict: true`). With concurrency 8 and a future
+broadcast job firing on `default` every second, polling could theoretically
+starve. Switch to weighted queues (`polling: 4, default: 1`) once Phase 4's
+broadcast job lands and we can measure real contention.
+
+---
+
+## Multi-process v1 enforcement
+**Priority:** P3
+**Captured:** /ship adversarial review on PR #9
+
+ADR 0002 acknowledges that two Sidekiq processes running the supervisor
+simultaneously will produce duplicate chains. v1 ships with a single
+worker container (docker-compose `worker: ... command: bundle exec sidekiq`).
+A future `--scale worker=2` would silently break correctness. Fix: the
+supervisor acquires a Postgres advisory lock at start of perform; if it
+fails to acquire (another process holds it), it skips the iteration.
+Cheap, no new gem.

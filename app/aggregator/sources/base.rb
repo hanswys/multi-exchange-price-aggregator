@@ -77,10 +77,21 @@ module Aggregator
       # unrescued Redis error. The poll job's rescue Aggregator::Sources::Error
       # would not catch Redis::CannotConnectError otherwise.
       def unhealthy?
-        @redis_pool.with { |r| r.exists?(unhealthy_key) }
+        self.class.unhealthy?(name, redis_pool: @redis_pool)
+      end
+
+      # Class-method form: lets the Supervisor ask "is binance unhealthy?"
+      # without instantiating a Binance adapter (which would build a
+      # Faraday connection just to read one Redis key).
+      def self.unhealthy?(name, redis_pool: Aggregator::REDIS_POOL)
+        redis_pool.with { |r| r.exists?(unhealthy_key(name)) }
       rescue Redis::BaseError, ConnectionPool::TimeoutError => e
         Rails.logger.warn("[#{name}] Redis unavailable for unhealthy? check (#{e.class}: #{e.message}); treating as healthy")
         false
+      end
+
+      def self.unhealthy_key(name)
+        "aggregator:source:#{name}:unhealthy"
       end
 
       private
@@ -91,14 +102,10 @@ module Aggregator
       # unrescued exception that bypasses the documented Sources::Error surface.
       def mark_unhealthy!
         @redis_pool.with do |r|
-          r.set(unhealthy_key, "1", ex: Constants::UNHEALTHY_TTL.to_i)
+          r.set(self.class.unhealthy_key(name), "1", ex: Constants::UNHEALTHY_TTL.to_i)
         end
       rescue Redis::BaseError, ConnectionPool::TimeoutError => e
         Rails.logger.warn("[#{name}] Redis unavailable for mark_unhealthy! (#{e.class}: #{e.message})")
-      end
-
-      def unhealthy_key
-        "aggregator:source:#{name}:unhealthy"
       end
 
       # Returns the integer seconds value of the Retry-After header, capped

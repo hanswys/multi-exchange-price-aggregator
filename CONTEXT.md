@@ -54,6 +54,27 @@ is also `unreachable` — a Source that's Unhealthy at aggregation time
 contributes an `unreachable` rejection, not an `unhealthy` one. The
 distinction matters to the adapter; it does not matter to the kernel.
 
+### Polling
+
+**Polling chain**:
+The recurring per-Source sequence of `ExchangePollJob` runs. Each run
+fetches one Tick, persists it, and self-reschedules the next run via
+`perform_in(POLLING_INTERVAL)`. One Polling chain per Source.
+_Avoid_: poller, poll loop, polling job (singular — there are many).
+
+**Killing the chain** is the act of skipping the self-reschedule when a
+Source raises `Unhealthy` or `Unreachable`. A killed chain is revived by
+the **Supervisor** (see below); the chain is *not* killed on
+`MalformedResponse` (Source is reachable, payload was bad — log and
+continue at the next interval).
+
+**Supervisor**:
+A separate job (`PollerSupervisorJob`) running once per minute. For each
+known Source, it re-enqueues an `ExchangePollJob` if the chain is dead
+*and* the Source is not currently Unhealthy. "Dead" is detected as
+"latest Tick for this Source is older than `UNHEALTHY_TTL`."
+_Avoid_: watchdog, monitor, restarter.
+
 ### Aggregation
 
 **Aggregate**:
