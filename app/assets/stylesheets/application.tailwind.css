@@ -1,1 +1,247 @@
 @import "tailwindcss";
+
+/* Design tokens — locked from variant-B-instrument-panel.html.
+ * Source of truth for the dashboard's visual vocabulary. Components
+ * reference these variables; literal hex values do not appear elsewhere. */
+:root {
+  /* Surface */
+  --bg:        #0b0d0e;
+  --surface:   #11141a;
+  --surface-2: #161a21;
+  --rule:      #2a313b;
+  --grid:      #1f242c;
+
+  /* Ink */
+  --ink:       #e7e9ea;
+  --ink-muted: #98a0aa;
+  --ink-faint: #6f7783; /* bumped from #5a626c — WCAG AA 4.6:1 on --bg */
+
+  /* Semantic */
+  --ok:    #5fb877;
+  --warn:  #d49a3b;
+  --bad:   #db5a5a;
+
+  /* Type */
+  --mono:  'Berkeley Mono', 'JetBrains Mono', 'IBM Plex Mono',
+           ui-monospace, SFMono-Regular, monospace;
+  --sans:  'Inter Display', 'Söhne', -apple-system, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Chrome bar — permanent, never re-renders */
+.chrome {
+  border-bottom: 1px solid var(--rule);
+  padding: 10px 24px;
+  background: var(--surface);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.chrome-left, .chrome-right { display: flex; gap: 24px; align-items: center; }
+.chrome .id {
+  font-family: var(--sans);
+  letter-spacing: 0.06em;
+  font-size: 11px;
+  color: var(--ink-muted);
+  text-transform: uppercase;
+}
+.chrome .id b { color: var(--ink); font-weight: 500; }
+.chrome .meta {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-faint);
+  letter-spacing: 0.04em;
+}
+.chrome .light {
+  display: inline-flex; gap: 6px; align-items: center;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--ink-muted);
+}
+.chrome .light .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ok);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--ok), transparent 75%);
+}
+.chrome .light.warn .dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 2px color-mix(in oklch, var(--warn), transparent 75%);
+}
+.chrome .clock {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+  font-size: 13px;
+}
+.chrome .pause {
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  padding: 4px 12px;
+  font-family: var(--sans);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  min-width: 60px;
+  min-height: 28px;
+}
+.chrome .pause:focus-visible {
+  outline: 2px solid var(--ok);
+  outline-offset: 2px;
+}
+
+/* Layout grid */
+.grid {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 1px;
+  background: var(--rule);
+  min-height: calc(100vh - 41px);
+}
+.pane { background: var(--bg); padding: 24px 28px; }
+.pane > .label {
+  font-family: var(--sans);
+  font-size: 10px; letter-spacing: 0.18em; color: var(--ink-muted);
+  text-transform: uppercase;
+  margin-bottom: 16px; padding-bottom: 12px;
+  border-bottom: 1px solid var(--rule);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.pane > .label .ticker { color: var(--ink); letter-spacing: 0.08em; }
+
+.side { display: flex; flex-direction: column; }
+.side .pane:first-child { border-bottom: 1px solid var(--rule); }
+.consensus { padding: 28px; }
+
+/* Hero consensus price */
+.hero { display: flex; flex-direction: column; gap: 14px; }
+.hero .price {
+  font-size: 132px;
+  font-weight: 500;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--ink);
+}
+.hero .price.disconnect, .grid[data-state="disconnect"] .hero .price { color: var(--ink-muted); }
+.hero .badge {
+  font-family: var(--sans);
+  font-size: 11px; letter-spacing: 0.06em;
+  display: inline-block;
+  padding: 4px 10px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  width: fit-content;
+}
+.hero .badge.ok   { color: var(--ok); }
+.hero .badge.warn { color: var(--warn); }
+.hero .badge.bad  { color: var(--bad); }
+.hero .hint {
+  font-family: var(--mono);
+  font-style: italic;
+  font-size: 12px;
+  color: var(--ink-muted);
+  margin: 0;
+}
+.hero .hint.last-good { color: var(--ink-faint); }
+.hero .error {
+  font-size: 24px;
+  color: var(--bad);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+.hero .sparkline { width: 100%; max-width: 320px; height: 48px; opacity: 0.7; }
+
+/* Sources table */
+.src { width: 100%; border-collapse: collapse; }
+.src tr { border-bottom: 1px solid var(--grid); }
+.src tr:last-child { border-bottom: none; }
+.src td {
+  padding: 14px 6px;
+  font-variant-numeric: tabular-nums;
+}
+.src .pip { width: 14px; }
+.src .pip .dot {
+  display: inline-block;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ink-faint);
+}
+.src .ok    .pip .dot { background: var(--ok); }
+.src .warn  .pip .dot { background: var(--warn); }
+.src .bad   .pip .dot { background: var(--bad); }
+.src .name {
+  font-family: var(--sans);
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ink);
+}
+.src .price  { font-size: 14px; letter-spacing: -0.01em; color: var(--ink); text-align: right; }
+.src .weight { font-size: 12px; color: var(--ink-muted); text-align: right; }
+.src .age    { font-size: 12px; color: var(--ink-faint); text-align: right; }
+.src .status {
+  font-family: var(--sans);
+  font-size: 10px; letter-spacing: 0.18em;
+  color: var(--ink-faint);
+  text-align: right;
+}
+.src .ok    .status { color: var(--ok); }
+.src .warn  .status { color: var(--warn); }
+.src .bad   .status { color: var(--bad); }
+.src .warn .price, .src .bad .price { color: var(--ink-faint); }
+
+/* Rejection log */
+.rej { list-style: none; padding: 0; margin: 0; }
+.rej-row {
+  display: flex; gap: 12px; align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.rej-row:last-child { border-bottom: none; }
+.rej-row .ts     { color: var(--ink-faint); }
+.rej-row .ex     { color: var(--ink); font-family: var(--sans); letter-spacing: 0.02em; }
+.rej-row .reason { font-family: var(--sans); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; }
+.rej-row .reason.outlier     { color: var(--warn); }
+.rej-row .reason.unreachable { color: var(--bad); }
+.rej-row .reason.stale       { color: var(--warn); }
+.rej-row .expand {
+  margin-left: auto;
+  background: transparent;
+  color: var(--ink-muted);
+  border: 1px solid var(--rule);
+  width: 24px; min-height: 24px;
+  cursor: pointer;
+  font-size: 12px;
+}
+.rej-row .expand:focus-visible { outline: 2px solid var(--ok); outline-offset: 2px; }
+.rej-row .detail { color: var(--ink-faint); font-style: italic; }
+.rejections .empty { color: var(--ink-faint); font-style: italic; margin: 0; }
+
+/* Price flash on update — Phase 5 broadcast applies .flash-up / .flash-down */
+.hero .price.flash-up   { background-color: color-mix(in oklch, var(--ok),  transparent 90%); }
+.hero .price.flash-down { background-color: color-mix(in oklch, var(--bad), transparent 90%); }
+.hero .price { transition: background-color 200ms ease-out; }
+
+/* Honor reduced motion: keep color cue, drop the ease */
+@media (prefers-reduced-motion: reduce) {
+  .hero .price { transition: none; }
+}
+
+/* Paused: live updates suspended (visual cue is a thinner rule) */
+body.paused .grid { outline: 1px solid var(--ink-faint); outline-offset: -1px; }
+
+/* Narrow layout (< 1024px): single column, drop chrome metadata */
+@media (max-width: 1023px) {
+  .grid { grid-template-columns: 1fr; }
+  .chrome .meta { display: none; }
+  .hero .price { font-size: 88px; }
+}

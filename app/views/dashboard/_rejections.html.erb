@@ -1,0 +1,22 @@
+<%
+  kernel_rejections = @aggregate&.sources_rejected || []
+  missing_rejections = @missing_sources.map { |name|
+    { exchange: name, reason: "unreachable", detail: "no tick within window" }
+  }
+  rejections = kernel_rejections + missing_rejections
+%>
+<% if rejections.empty? %>
+  <p class="empty">no rejections in window</p>
+<% else %>
+  <ul class="rej">
+    <% rejections.each do |r| %>
+      <li class="rej-row" data-controller="rejection-detail">
+        <span class="ts"><%= Time.now.utc.strftime("%H:%M:%S") %></span>
+        <span class="ex"><%= r[:exchange] %></span>
+        <span class="reason <%= r[:reason] %>"><%= r[:reason] %></span>
+        <button class="expand" data-action="rejection-detail#toggle" aria-expanded="false">+</button>
+        <span class="detail" data-rejection-detail-target="detail" hidden><%= r[:detail] %></span>
+      </li>
+    <% end %>
+  </ul>
+<% end %>

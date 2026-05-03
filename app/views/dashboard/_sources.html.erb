@@ -1,0 +1,29 @@
+<table class="src">
+  <tbody>
+    <%
+      ticks_by_exchange = @ticks.group_by(&:exchange).transform_values(&:first)
+      used_by_exchange  = (@aggregate&.sources_used || []).index_by { |s| s[:exchange] }
+    %>
+    <% Aggregator::Sources::REGISTRY.each do |name| %>
+      <%
+        tick   = ticks_by_exchange[name]
+        used   = used_by_exchange[name]
+        status = if tick.nil?
+                   { label: "UNREACHABLE", klass: "bad" }
+                 elsif used.nil?
+                   { label: "REJECTED",    klass: "warn" }
+                 else
+                   { label: "OK",          klass: "ok"  }
+                 end
+      %>
+      <tr class="src-row <%= status[:klass] %>" data-source="<%= name %>">
+        <td class="pip"><span class="dot"></span></td>
+        <td class="name"><%= name %></td>
+        <td class="price"><%= used ? format_price(used[:price]) : (tick ? format_price(tick.price) : "—") %></td>
+        <td class="weight"><%= used ? format_weight(used[:weight]) : "—" %></td>
+        <td class="age"><%= tick ? "#{format_age((Time.now.utc - tick.source_ts).to_f)}" : "—" %></td>
+        <td class="status"><%= status[:label] %></td>
+      </tr>
+    <% end %>
+  </tbody>
+</table>

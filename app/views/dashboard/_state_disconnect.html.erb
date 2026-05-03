@@ -1,0 +1,5 @@
+<div class="price disconnect" data-consensus-slot data-frozen>
+  <%= @aggregate ? format_price(@aggregate.vwap) : "——,———.——" %>
+</div>
+<div class="badge warn">RECONNECTING…</div>
+<p class="hint">Connection lost. Numbers frozen at last value.</p>

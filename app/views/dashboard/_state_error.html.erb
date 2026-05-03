@@ -1,0 +1,6 @@
+<div class="error">
+  Insufficient sources — only <%= @ticks.map(&:exchange).uniq.size %> of <%= Aggregator::Sources::REGISTRY.size %> healthy.
+</div>
+<% if @last_good_price %>
+  <p class="hint last-good">last good price was $<%= format_price(@last_good_price) %>, <%= format_age(@last_good_age) %> ago</p>
+<% end %>
