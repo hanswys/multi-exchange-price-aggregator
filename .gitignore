@@ -56,3 +56,8 @@ yarn-debug.log*
 
 # OS metadata
 .DS_Store
+
+# Agent / Claude tooling
+/.agents/
+/.claude/
+/skills-lock.json
