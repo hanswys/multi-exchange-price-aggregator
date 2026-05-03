@@ -18,7 +18,7 @@ PR #3 is the project's thesis. If a reviewer reads only one diff, it's #3.
 **Title:** `chore: rails new + docker-compose + /healthz`
 
 - `rails new . --database=postgresql --css=tailwind --javascript=esbuild --skip-test` (full Rails, NOT `--api`)
-- Gemfile additions: `sidekiq`, `redis`, `faraday`, `faraday-retry`, `oj`, `rspec-rails`, `webmock`, `vcr`, `cuprite`, `rubocop-rails`, `brakeman`, `turbo-rails`, `stimulus-rails`, `cssbundling-rails` (Tailwind)
+- Gemfile additions: `sidekiq`, `redis`, `faraday`, `oj`, `rspec-rails`, `webmock`, `vcr`, `mock_redis`, `cuprite`, `rubocop-rails`, `brakeman`, `turbo-rails`, `stimulus-rails`, `cssbundling-rails` (Tailwind). `faraday-retry` was originally listed but dropped in Phase 2 (PR #8) — see `docs/adr/0001-source-adapter-fetch-contract.md` for why we hand-roll the retry loop instead.
 - `docker-compose.yml` services:
   - `web` (Rails + Puma)
   - `worker` (Sidekiq)
@@ -107,21 +107,24 @@ PR #3 is the project's thesis. If a reviewer reads only one diff, it's #3.
 
 **Title:** `feat(sources): Binance adapter with VCR contract spec`
 
-- `app/aggregator/sources/base.rb` — Faraday wiring:
-  - JSON middleware (request + response via `oj`)
-  - `faraday-retry` with `Aggregator::Constants::RETRY_BACKOFF_MS` exponential backoff
-  - Custom middleware to honor `Retry-After` header on 429s (don't exponential-backoff over a server-told sleep)
-  - Per-instance circuit-breaker: after 3 retries fail, mark unhealthy for `UNHEALTHY_TTL` (30s) via Redis key
-- `app/aggregator/sources/binance.rb` — `#fetch(pair) → Aggregator::Tick`:
-  - GET `/api/v3/ticker/24hr?symbol=BTCUSDT` (or `/ticker/price` if rate-limit margin tighter)
-  - Normalizes `BTCUSDT` → `BTC-USD` canonical
-  - Returns `Aggregator::Tick.new(exchange: "binance", pair: "BTC-USD", ...)`
-  - Adapter class docstring: rate-limit budget calculation
-- VCR-recorded contract spec: happy path
-- `binance_rate_limit_spec.rb`: WebMock 429 with `Retry-After: 5`, assert adapter sleeps 5s (5th critical edge-case spec)
-- `lib/tasks/aggregator.rake` → `rake aggregator:fetch[binance,BTC-USD]` prints normalized tick (manual smoke test)
+**Status:** SHIPPED (PR #8). Notes below describe the as-shipped surface.
 
-**Reviewable as:** "we can pull live data from Binance and normalize it into the kernel's value object. First 'oh, it works' moment."
+- `app/aggregator/sources/base.rb` — Faraday wiring + hand-rolled retry loop reading `Aggregator::Constants::RETRY_BACKOFF_MS` directly (no `faraday-retry` middleware — see `docs/adr/0001-source-adapter-fetch-contract.md`). Honors `Retry-After` on 429, capped at `Constants::RETRY_AFTER_MAX_S` (30s) so a hostile server can't pin a Sidekiq worker. Redis-backed circuit breaker fails OPEN if Redis is unreachable. After 3 retry attempts (4 total attempts) fail, marks the Source unhealthy for `UNHEALTHY_TTL` (30s) and raises `Aggregator::Sources::Unreachable`.
+- `app/aggregator/sources/binance.rb` — `#fetch(pair) → Aggregator::Tick`:
+  - GET `/api/v3/ticker/24hr?symbol=BTCUSDT` (weight 2 → 5% of the 1200/min IP budget at 2s polling)
+  - Normalizes `BTCUSDT` → `BTC-USD` canonical via `SYMBOL_MAP`
+  - Millisecond-precision `source_ts` from Binance's `closeTime`
+  - Returns `Aggregator::Tick.new(exchange: "binance", pair: "BTC-USD", ...)` or raises `Sources::Unhealthy` / `Sources::Unreachable` / `Sources::MalformedResponse`
+- Exception family: `Aggregator::Sources::Error` ← `Unhealthy`, `Unreachable`, `MalformedResponse`. `RateLimited` is internal-only — collapsed into `Unreachable` after retries exhaust.
+- `Aggregator::REDIS_POOL` — app-owned `ConnectionPool` (size 5) decoupled from Sidekiq, defined in `config/initializers/aggregator_redis.rb`.
+- VCR-recorded contract spec: happy path with query-param assertion.
+- `binance_rate_limit_spec.rb`: 5 specs covering 429 + Retry-After honored, no-Retry-After fallback, HTTP-date fallback, oversized Retry-After capped, 4× 429 → Unreachable + circuit opens.
+- `binance_unreachable_spec.rb`: 5xx ×4, Faraday::ConnectionFailed ×4, Faraday::TimeoutError ×4 each → Unreachable + Unhealthy. Plus transient-5xx → 200 recovery.
+- `binance_unhealthy_spec.rb`: open-circuit short-circuit (no HTTP), expired-TTL allows fetch.
+- `binance_parse_spec.rb`: missing field → MalformedResponse, non-object body → MalformedResponse, non-numeric `lastPrice` → MalformedResponse, non-integer `closeTime` → MalformedResponse, unknown pair → ArgumentError (no HTTP).
+- `lib/tasks/aggregator.rake` → `rake aggregator:fetch[binance,BTC-USD]` prints a 6-line normalized Tick block (manual smoke test).
+
+**Reviewable as:** "we can pull live data from Binance and normalize it into the kernel's value object. First 'oh, it works' moment." Smoke-tested live against Binance during /ship.
 
 ---
 

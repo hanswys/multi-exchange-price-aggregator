@@ -22,9 +22,11 @@ gem "jbuilder"
 gem "sidekiq"
 gem "redis", "~> 5"
 
-# HTTP client for exchange adapters
+# HTTP client for exchange adapters.
+# Retry/backoff is hand-rolled in Aggregator::Sources::Base so that
+# Aggregator::Constants::RETRY_BACKOFF_MS is the single source of truth — see
+# docs/adr/0001-source-adapter-fetch-contract.md.
 gem "faraday"
-gem "faraday-retry"
 
 # Fast JSON parsing/serialization
 gem "oj"
@@ -64,6 +66,7 @@ group :test do
   gem "webmock"
   gem "vcr"
   gem "cuprite"
+  gem "mock_redis"
 end
 
 group :development do
