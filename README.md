@@ -11,6 +11,8 @@ cp .env.example .env       # dev-only credentials for the local containers
 docker compose up
 curl localhost:3000/healthz
 # => {"status":"ok","db":"ok","redis":"ok","sources_healthy":0}
+curl localhost:3000/price/BTC-USD
+# => {"pair":"BTC-USD","vwap":"67432.18","confidence":"ok",...}
 ```
 
 `.env` is gitignored. `docker-compose.yml` requires `POSTGRES_USER`,
@@ -19,6 +21,33 @@ be set — Compose will refuse to start otherwise.
 
 See `ROADMAP.md` for the implementation sequence and `TODOS.md` for deferred
 work.
+
+## API
+
+`GET /price/:pair` — public read-only JSON endpoint. The supported pair set is
+`Aggregator::Sources::CANONICAL_PAIRS` (v1: `BTC-USD`).
+
+- **200 OK** — body is the consensus `Aggregate`: `{pair, vwap, confidence,
+  as_of, window_seconds, sources_used, sources_rejected}`. `vwap`, per-source
+  `price`, and per-source `weight` are decimal strings, never IEEE-754.
+  `confidence` is one of `ok`, `degraded_outlier`, `degraded_unreachable`.
+- **404 `unknown_pair`** — pair not in the supported set. Envelope echoes
+  `supported_pairs`. A lowercase pair gets a `did you mean BTC-USD?` hint.
+- **503 `insufficient_sources`** — fewer than `MIN_SOURCES` (2) Sources had
+  fresh Ticks. Envelope carries `sources_used`, `sources_required`, and
+  `sources_rejected` populated with `unreachable` rows for each missing
+  Source.
+
+Sources absent from the aggregation window appear in `sources_rejected` with
+`reason: "unreachable"`, synthesized by the controller — the kernel only
+rejects Ticks it sees. See
+`docs/adr/0006-missing-source-rejection-injection.md` for why.
+
+API controllers inherit from `ActionController::API` (the dashboard side
+keeps `ApplicationController`). See
+`docs/adr/0005-controller-layer-split.md`. CORS is wide-open on `/price/*`
+for `GET` only — public read API, no credentials. Responses are
+`Cache-Control: no-store` because the body carries `as_of`.
 
 ## Sources
 
