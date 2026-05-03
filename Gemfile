@@ -31,6 +31,9 @@ gem "faraday"
 # Fast JSON parsing/serialization
 gem "oj"
 
+# CORS for the public read-only /price/* JSON API
+gem "rack-cors"
+
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 

@@ -245,6 +245,11 @@ symbols (Kraken)." Smoke-tested live during /ship.
 
 **Title:** `feat(api): GET /price/:pair with structured response + 503 path`
 
+**Status:** SHIPPED (PR #12). Notes below describe the as-shipped surface;
+deviations from the original plan are recorded in
+`docs/adr/0005-controller-layer-split.md` and
+`docs/adr/0006-missing-source-rejection-injection.md`.
+
 - `app/controllers/api/v1/base_controller.rb`:
   - `protect_from_forgery with: :null_session`
   - `rack-cors` configured: `allow { origins '*'; resource '/price/*', headers: :any, methods: [:get] }`
