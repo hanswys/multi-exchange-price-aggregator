@@ -56,6 +56,12 @@ module Aggregator
         )
       rescue KeyError => e
         raise MalformedResponse, "binance: missing field #{e.key.inspect}"
+      rescue ArgumentError, TypeError, NoMethodError => e
+        # BigDecimal("not-a-number") raises ArgumentError; closeTime / 1000.0
+        # on a non-numeric raises NoMethodError; nil values raise TypeError.
+        # All map to the same failure: the payload was not the shape we
+        # expected, so callers see one consistent exception class.
+        raise MalformedResponse, "binance: malformed payload — #{e.message}"
       end
     end
   end

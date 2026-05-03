@@ -39,5 +39,31 @@ RSpec.describe Aggregator::Sources::Binance, "response parsing and pair validati
         adapter.fetch("BTC-USD")
       }.to raise_error(Aggregator::Sources::MalformedResponse, /not a JSON object/)
     end
+
+    it "raises MalformedResponse when lastPrice is not a valid number" do
+      stub_request(:get, %r{api\.binance\.com/api/v3/ticker/24hr})
+        .to_return(
+          status: 200,
+          headers: { "Content-Type" => "application/json" },
+          body: { "lastPrice" => "not-a-number", "quoteVolume" => "1", "closeTime" => 1_777_824_000_000 }.to_json
+        )
+
+      expect {
+        adapter.fetch("BTC-USD")
+      }.to raise_error(Aggregator::Sources::MalformedResponse, /malformed payload/)
+    end
+
+    it "raises MalformedResponse when closeTime is not numeric" do
+      stub_request(:get, %r{api\.binance\.com/api/v3/ticker/24hr})
+        .to_return(
+          status: 200,
+          headers: { "Content-Type" => "application/json" },
+          body: { "lastPrice" => "1", "quoteVolume" => "1", "closeTime" => "oops" }.to_json
+        )
+
+      expect {
+        adapter.fetch("BTC-USD")
+      }.to raise_error(Aggregator::Sources::MalformedResponse, /malformed payload/)
+    end
   end
 end

@@ -13,9 +13,6 @@ module Aggregator
     # The contract of #fetch is documented in
     # docs/adr/0001-source-adapter-fetch-contract.md.
     class Base
-      OPEN_TIMEOUT = 2
-      READ_TIMEOUT = 5
-
       def initialize(http: nil, redis_pool: Aggregator::REDIS_POOL)
         @http = http || build_connection
         @redis_pool = redis_pool
@@ -38,6 +35,8 @@ module Aggregator
         raise Unhealthy, "#{name} is unhealthy" if unhealthy?
 
         last_error = nil
+        # RETRY_BACKOFF_MS holds the sleep durations BETWEEN attempts, so the
+        # number of attempts is one more than the number of sleeps.
         max_attempts = Constants::RETRY_BACKOFF_MS.size + 1
 
         max_attempts.times do |attempt|
@@ -83,14 +82,25 @@ module Aggregator
         "aggregator:source:#{name}:unhealthy"
       end
 
+      # Returns the integer seconds value of the Retry-After header, capped
+      # at RETRY_AFTER_MAX_S. Returns nil if the header is absent, malformed,
+      # in HTTP-date format (which we intentionally don't parse), or larger
+      # than the cap — in any of those cases we fall back to RETRY_BACKOFF_MS,
+      # which is bounded.
       def retry_after_seconds(response)
-        Integer(response.headers["Retry-After"] || response.headers["retry-after"])
+        raw = response.headers["Retry-After"] || response.headers["retry-after"]
+        return nil if raw.nil?
+        seconds = Integer(raw)
+        return nil if seconds > Constants::RETRY_AFTER_MAX_S || seconds.negative?
+        seconds
+      rescue ArgumentError, TypeError
+        nil
       end
 
       def build_connection
         Faraday.new(url: base_url) do |f|
-          f.options.open_timeout = OPEN_TIMEOUT
-          f.options.timeout      = READ_TIMEOUT
+          f.options.open_timeout = Constants::HTTP_OPEN_TIMEOUT
+          f.options.timeout      = Constants::HTTP_READ_TIMEOUT
           f.headers["Accept"]    = "application/json"
           f.headers["User-Agent"] = "aggregator-#{name}-adapter/1.0"
           f.adapter Faraday.default_adapter
