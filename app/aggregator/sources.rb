@@ -9,6 +9,11 @@ module Aggregator
     # by convention).
     REGISTRY = %w[binance coinbase kraken].freeze
 
+    # Canonical pairs the v1 API answers for. Drives the gate in
+    # Api::V1::PricesController; an unknown pair returns 404 with the
+    # supported set echoed in the envelope. Phase 1.5 appends "ETH-USD".
+    CANONICAL_PAIRS = %w[BTC-USD].freeze
+
     def self.adapter_for(name)
       raise ArgumentError, "unknown source: #{name.inspect}" unless REGISTRY.include?(name)
       const_get(name.camelize)
