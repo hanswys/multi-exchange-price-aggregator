@@ -1,5 +1,12 @@
+# Dev runs as multi-process under docker-compose (web + worker as
+# separate containers). The async adapter is in-process only — a
+# broadcast from the worker would never reach a client connected to
+# the web. Use Redis so both bin/dev and docker compose work. See
+# docs/adr/0007-broadcast-chain-design.md.
 development:
-  adapter: async
+  adapter: redis
+  url: <%= ENV.fetch("REDIS_URL") { "redis://localhost:6379/0" } %>
+  channel_prefix: multi_exchange_price_aggregator_development
 
 test:
   adapter: test
