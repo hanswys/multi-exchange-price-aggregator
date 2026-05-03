@@ -189,15 +189,53 @@ and are captured in `docs/adr/0002-polling-chain-lifecycle.md`. As-shipped:
 
 ### PR #7: Kraken adapter (the quirky one)
 
-**Title:** `feat(sources): Kraken adapter with raw-symbol translation`
+**Title:** `feat(sources/kraken): adapter + VCR contract + ADR 0004`
 
-- `app/aggregator/sources/kraken.rb` — handles `XXBTZUSD` raw → `BTC-USD` canonical
-- VCR contract spec specifically covers the raw-symbol translation
-- Initializer wires Kraken
-- README's "What I didn't build and why" gets a paragraph defending the no-`SymbolMapper`-extraction call:
-  > "I considered extracting symbol normalization into a shared `SymbolMapper`. I didn't — Kraken's `XXBTZUSD` quirks are more readable when they live next to the rest of the Kraken adapter than buried in a generic mapping table. Three adapters is small enough that DRY would obscure intent rather than save code."
+**Status:** SHIPPED (PR #11). Four coupled per-adapter decisions are
+recorded in ADR 0004. As-shipped:
 
-**Reviewable as:** "three sources online. Integration-class spectrum covered: clean (Coinbase), heavy weight budget (Binance), quirky symbols (Kraken)."
+- `app/aggregator/sources/kraken.rb` — `#fetch(pair) → Aggregator::Tick`:
+  - GET `/0/public/Ticker?pair=XXBTZUSD` (no auth; ~0.5 req/s — half of
+    Kraken's ~1 req/s soft cap)
+  - `SYMBOL_MAP {"BTC-USD" => "XXBTZUSD"}` — the X/Z asset-prefix is the
+    request param AND the response `result` hash key, so `result.fetch(native)`
+    is an explicit assertion (an altname rewrite to e.g. `XBTUSD` raises
+    MalformedResponse, not silent parse-of-first-value)
+  - 200-with-non-empty-`error`-array envelope → `MalformedResponse`
+    (Kraken signals app-level errors as 200, never 4xx)
+  - `source_ts` from HTTP `Date` response header (no body-level
+    timestamp, same as Coinbase per ADR 0003)
+  - `quote_volume_24h = v[1] × p[1]` — uses Kraken's true 24h VWAP, the
+    most authoritative figure it exposes (Binance: native `quoteVolume`;
+    Coinbase: `volume × price` because no VWAP)
+  - Hardening folded in from /ship adversarial review: 256-char
+    truncation on upstream-controlled exception strings; reject
+    `BigDecimal("NaN"/"Infinity")` and zero-or-negative price
+- REGISTRY append wires Kraken into the supervisor's iteration order
+  (per ADR 0002 the supervisor is the single source of truth — no
+  initializer change)
+- VCR contract spec asserts the X/Z-prefix native symbol round-trip on
+  the wire
+- 25 parse/edge-case specs covering error envelope (5), result-key
+  lookup (4), Date header (3), malformed payload (5), non-finite
+  numeric guards (4), tolerant error-envelope shapes (4)
+- Pre-existing `poller_supervisor_job_spec.rb` regression fixed
+  (REGISTRY-aware via `tick_for(name, age:)` helper — would have
+  silently broken once Coinbase shipped, only surfaced now because
+  Kraken made the test count off-by-2 instead of off-by-1)
+- README's symbol mapping table extended; "no shared `SymbolMapper`"
+  bullet leads with the *coupling* argument (mapping is paired with
+  response-shape decisions a central table can't carry)
+- TODOS.md: P2 follow-up for response-body size cap (cross-adapter
+  Faraday middleware in `Sources::Base`); P3 follow-up to apply
+  Kraken's finite/truncation hardening to Binance + Coinbase
+- Live smoke tested: `rake aggregator:fetch[kraken,BTC-USD]` returned
+  a valid Tick with second-precision `source_ts`; `/healthz` reports
+  3 sources_healthy with all chains polling
+
+**Reviewable as:** "three sources online. Integration-class spectrum
+covered: clean (Coinbase), heavy weight budget (Binance), quirky
+symbols (Kraken)." Smoke-tested live during /ship.
 
 ---
 
