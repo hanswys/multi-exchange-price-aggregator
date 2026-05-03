@@ -1,9 +1,0 @@
-<div class="price" data-consensus-slot><%= format_price(@aggregate.vwap) %></div>
-<%
-  label = @aggregate.confidence == "degraded_outlier" ? "DEGRADED · OUTLIER" : "DEGRADED · UNREACHABLE"
-  badge_class = @aggregate.confidence == "degraded_outlier" ? "warn" : "bad"
-%>
-<div class="badge <%= badge_class %>"><%= label %></div>
-<svg class="sparkline" viewBox="0 0 240 48" aria-hidden="true">
-  <path d="M0,24 L240,24" stroke="var(--warn)" fill="none" stroke-width="1.5"/>
-</svg>

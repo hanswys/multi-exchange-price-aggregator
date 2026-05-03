@@ -1,6 +1,12 @@
+<%
+  healthy_count = local_assigns.fetch(:healthy_count) { (@ticks || []).map(&:exchange).uniq.size }
+  total_count   = Aggregator::Sources::REGISTRY.size
+  lg_price      = local_assigns.fetch(:last_good_price) { @last_good_price }
+  lg_age        = local_assigns.fetch(:last_good_age)   { @last_good_age }
+%>
 <div class="error">
-  Insufficient sources — only <%= @ticks.map(&:exchange).uniq.size %> of <%= Aggregator::Sources::REGISTRY.size %> healthy.
+  Insufficient sources — only <%= healthy_count %> of <%= total_count %> healthy.
 </div>
-<% if @last_good_price %>
-  <p class="hint last-good">last good price was $<%= format_price(@last_good_price) %>, <%= format_age(@last_good_age) %> ago</p>
+<% if lg_price %>
+  <p class="hint last-good">last good price was $<%= format_price(lg_price) %>, <%= format_age(lg_age) %> ago</p>
 <% end %>
