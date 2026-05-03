@@ -83,6 +83,44 @@ known Source, it re-enqueues an `ExchangePollJob` if the chain is dead
 "latest Tick for this Source is older than `UNHEALTHY_TTL`."
 _Avoid_: watchdog, monitor, restarter.
 
+### Broadcasting
+
+**Broadcast chain**:
+The recurring sequence of `BroadcastTickJob` runs. Each run reads the
+latest Aggregate from `Tick.recent_values`, computes via
+`Aggregator::Core.compute`, and pushes a Turbo Stream update to the
+`:price_BTC_USD` channel before self-rescheduling at
+`BROADCAST_INTERVAL` (1s). Exactly **one** Broadcast chain exists per
+Sidekiq process; idempotency is enforced by a Redis sentinel
+(`broadcaster:in_flight`, `EX` ≈ 3s) that gates both the boot enqueue
+and the self-reschedule. Decoupled from the Polling chain so that
+broadcast cadence and poll cadence vary independently — the dashboard
+updates once per second regardless of how many Sources polled in that
+second.
+_Avoid_: broadcaster job, broadcast loop, dashboard pump.
+
+**Consensus partial**:
+`app/views/dashboard/_consensus.html.erb` — the single partial that
+renders the hero (price + confidence badge + sparkline placeholder)
+for any Aggregate, branching on `agg.confidence` for the badge label.
+Used both by the initial server render (when `@state` is `:ok` or
+`:partial`) and by every Broadcast chain update. The previous
+per-state partials `_state_ok.html.erb` and `_state_partial.html.erb`
+are subsumed by this one — keeping them separate would mean the
+broadcast picks the wrong partial on confidence transitions
+(`ok → degraded_outlier` mid-stream), and the dashboard would lie
+about its own state.
+_Avoid_: hero partial, price partial.
+
+**Truth-telling on broadcast**:
+On `Aggregator::InsufficientSources`, the Broadcast chain renders
+`_state_error.html.erb` to the same target — it does **not** skip the
+broadcast. Skipping would leave a previously healthy dashboard
+displaying the last good price indefinitely while sources are down,
+violating the project's correctness thesis. The 503 state is reached
+*both* by request-time render and by mid-session source loss; both
+paths show the same partial.
+
 ### Aggregation
 
 **Aggregate**:

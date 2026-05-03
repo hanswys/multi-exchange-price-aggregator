@@ -1,0 +1,22 @@
+<%
+  case agg.confidence
+  when "ok"
+    label = "OK · #{agg.sources_used.size} sources"
+    badge_class = "ok"
+    stroke_var = "var(--ok)"
+  when "degraded_outlier"
+    label = "DEGRADED · OUTLIER"
+    badge_class = "warn"
+    stroke_var = "var(--warn)"
+  when "degraded_unreachable"
+    label = "DEGRADED · UNREACHABLE"
+    badge_class = "bad"
+    stroke_var = "var(--bad)"
+  end
+%>
+<div class="price" data-consensus-slot data-flash-target="price"><%= format_price(agg.vwap) %></div>
+<div class="badge <%= badge_class %>"><%= label %></div>
+<svg class="sparkline" viewBox="0 0 240 48" aria-hidden="true">
+  <%# Phase 5: BroadcastTickJob will replace this path with real consensus history. %>
+  <path d="M0,24 L240,24" stroke="<%= stroke_var %>" fill="none" stroke-width="1.5"/>
+</svg>

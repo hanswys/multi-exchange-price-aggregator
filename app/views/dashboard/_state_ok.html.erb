@@ -1,6 +1,0 @@
-<div class="price" data-consensus-slot><%= format_price(@aggregate.vwap) %></div>
-<div class="badge ok"><%= "OK · #{@aggregate.sources_used.size} sources" %></div>
-<svg class="sparkline" viewBox="0 0 240 48" aria-hidden="true">
-  <%# Phase 5: BroadcastTickJob will replace this path with real consensus history. %>
-  <path d="M0,24 L240,24" stroke="var(--ok)" fill="none" stroke-width="1.5"/>
-</svg>

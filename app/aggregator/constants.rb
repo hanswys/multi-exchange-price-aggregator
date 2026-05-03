@@ -1,6 +1,7 @@
 module Aggregator
   module Constants
     POLLING_INTERVAL    = 2.0
+    BROADCAST_INTERVAL  = 1.0
     AGGREGATION_WINDOW  = 10.seconds
     STALENESS_SLO       = 10.seconds
     MAD_K               = 5.0

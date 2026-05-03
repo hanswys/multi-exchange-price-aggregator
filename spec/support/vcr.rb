@@ -5,6 +5,10 @@ VCR.configure do |c|
   c.cassette_library_dir = Rails.root.join("spec/fixtures/vcr").to_s
   c.hook_into :webmock
   c.configure_rspec_metadata!
+  # Capybara's server health check + Cuprite's CDP traffic are localhost
+  # connections that have nothing to do with exchange API replays.
+  c.ignore_localhost = true
+  c.ignore_hosts "127.0.0.1", "::1"
   c.default_cassette_options = {
     record: :none,
     match_requests_on: [ :method, :uri ]

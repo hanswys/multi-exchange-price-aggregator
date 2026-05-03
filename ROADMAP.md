@@ -325,6 +325,19 @@ two minor variances from the original spec are listed under "as-shipped".
 
 **Reviewable as:** "open `localhost:3000` and the consensus price updates once per second with a subtle flash. Tab title becomes a live ticker. **MVP done.**"
 
+**Status:** SHIPPED.
+
+**As-shipped variances:**
+- `broadcast_update_to` (not `broadcast_replace_to`). The Stimulus flash controller attaches to `consensus_hero` (the non-replaced parent) and observes `turbo:before-stream-render`; replace would destroy the controller's element and lose the previous-price reference. See ADR 0007.
+- DOM target id is `consensus_hero` (not `consensus_price`). Naming the broadcast region rather than the slot makes the partial responsible for whatever lives inside (price + badge + sparkline placeholder), so future fields don't require new ids.
+- On `Aggregator::InsufficientSources`, the chain broadcasts `dashboard/state_error` to the same target — it does **not** skip. The plan-as-written said "skip so the existing 503 state remains rendered," but a page rendered as `:ok` whose Sources subsequently fail would freeze on the last good price with no badge change. That violates the project's correctness thesis. ADR 0007 records the reasoning.
+- Idempotency via Redis sentinel (`broadcaster:in_flight`, EX 3) gates the boot enqueue and self-reschedule. Replaces the implicit "trust `Sidekiq.server?` once" approach so that Sidekiq restarts don't accumulate parallel chains. ADR 0007.
+- Dev `cable.yml` flipped from `async` to Redis. Under `docker compose up` the worker is a separate process from web; the async adapter is in-process only and would silently never deliver broadcasts. Dev now matches production.
+- The "live page title" Stimulus controller is folded into `flash_controller.js` rather than a separate controller — the new price text is in hand at the same instant the flash class is applied.
+- The Consensus partial subsumes the previous `_state_ok.html.erb` and `_state_partial.html.erb` (deleted). One partial, branching on `agg.confidence` for the badge — broadcasts can transition `ok ↔ degraded_*` without picking a different partial.
+- Sources panel and rejection log are **not yet broadcast** — Phase 4 ships consensus-only live updates. The panels render correctly on initial page load and on full reload but stay static between broadcasts. Adding their live updates is a follow-up; the partials already exist and the broadcast call sites are obvious.
+- The plan said "system spec verifying a stub broadcast updates the DOM." Implemented as a request-level wiring spec (`spec/requests/dashboard_broadcast_wiring_spec.rb`) that asserts the dashboard subscribes to the same signed stream the worker broadcasts to. A true browser-driven system spec needs Chromium in `Dockerfile.dev`; that's deferred. Combined with the unit specs (job → broadcast call shape; partial → render correctness), the path is verified end-to-end without the browser.
+
 ---
 
 ## Phase 5: Polish (PRs 11–13)
