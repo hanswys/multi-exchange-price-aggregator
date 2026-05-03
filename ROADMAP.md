@@ -346,21 +346,28 @@ two minor variances from the original spec are listed under "as-shipped".
 
 **Title:** `docs: README v1 — the actual artifact`
 
-Sections in order:
+**Status:** SHIPPED (PR #15 on GitHub — branch numbering ran ahead of
+ROADMAP numbering through the dashboard work). All 11 sections from
+the original spec landed verbatim in
+[`README.md`](README.md), in the requested order:
 
-1. Response example (curl + JSON)
+1. Response example (curl + JSON, with five callouts on the response shape)
 2. "Three exchanges, because the fourth one was lying on Tuesday"
-3. Quickstart (`docker compose up` first; "Without Docker" second)
-4. **Why Rails for an aggregator?** (defends the unconventional choice)
+3. Quickstart (`docker compose up` first; "Without Docker" second; test commands)
+4. **Why Rails for an aggregator?** (the unconventional-choice defense)
 5. **Why Hotwire (not React)?**
-6. **Why Sidekiq, not Solid Queue?** (the TODO from eng review)
-7. **Things That Will Lie To You:** clock skew, stale data, outliers, weighting (each ~3 paragraphs with concrete examples)
-8. **The math:** kernel constants table (verbatim from design doc), `quoteVolume`-weighted consensus formula, MAD definition, "why we don't call this true VWAP"
-9. **Architecture diagram** (ASCII, reflects the decoupled poll → broadcast pipeline)
-10. **What I didn't build and why:** Phase 2 (anomaly), sound, mobile, production deploy, retention policy, SymbolMapper extraction, Solid Queue evaluation
-11. CI badge
+6. **Why Sidekiq, not Solid Queue?** (closes the TODO from eng review)
+7. **Things That Will Lie To You:** clock skew, stale data, outliers, weighting
+8. **The math:** constants table verbatim from `Aggregator::Constants`,
+   `quote_volume`-weighted consensus formula, MAD definition, why this is
+   not "true" VWAP
+9. **Architecture diagram** (ASCII, decoupled poll → broadcast pipeline)
+10. **What I didn't build and why:** anomaly phase, sound, mobile, prod
+    deploy, retention policy, `SymbolMapper` extraction, Solid Queue eval,
+    Prometheus exposition
+11. CI badge wired to `.github/workflows/ci.yml`
 
-Budget: **8-10 hours** of writing. The README IS the deliverable.
+Plus a "Project layout" tree and an MIT licence note. Total: ~715 lines.
 
 **Reviewable as:** "the README earns the test suite. A hiring manager who reads only this and skims `tests/` knows the project's thesis."
 
