@@ -15,3 +15,9 @@ Default vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-
 ### Domain docs
 
 Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Runtime flows
+
+End-to-end flow tour for engineers (polling, aggregation, broadcast,
+source health, dashboard render) in [`docs/FLOWS.md`](docs/FLOWS.md).
+Read after `CONTEXT.md` — it leans on the vocabulary defined there.
